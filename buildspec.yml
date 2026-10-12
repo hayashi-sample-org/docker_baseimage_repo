@@ -1,0 +1,38 @@
+version: 0.2
+
+# 以下の変数は buildspec.yml には値を書かず、CodeBuildプロジェクトの「環境変数」で設定する
+#   AWS_REGION                 : ap-northeast-1
+#   AWS_ACCOUNT_ID             : AWSアカウントID
+#   ECR_REPOSITORY             : java-otel-app
+#   IMAGE_TAG                  : latest
+#   CODEARTIFACT_DOMAIN        : artifact-domain
+#   CODEARTIFACT_DOMAIN_OWNER  : CodeArtifactドメイン所有者（アカウントID）
+# これらをソースに書かないことで、パブリックリポジトリにアカウントID等を残さない。
+
+phases:
+  pre_build:
+    commands:
+      - echo "===== pre_build 開始 ====="
+      # ECRのURIを組み立てる
+      - ECR_URI="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPOSITORY}"
+      # ECRにログイン
+      - echo "ECRにログイン"
+      - aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
+      # CodeArtifactの認証トークンを取得
+      - echo "CodeArtifactトークンを取得"
+      - export CODEARTIFACT_AUTH_TOKEN=$(aws codeartifact get-authorization-token --domain ${CODEARTIFACT_DOMAIN} --domain-owner ${CODEARTIFACT_DOMAIN_OWNER} --region ${AWS_REGION} --query authorizationToken --output text)
+
+  build:
+    commands:
+      - echo "===== build 開始 ====="
+      # Otel入りのJavaイメージをビルド（トークンをbuild-argで渡す）
+      - docker build --build-arg CODEARTIFACT_AUTH_TOKEN=${CODEARTIFACT_AUTH_TOKEN} -t ${ECR_REPOSITORY}:${IMAGE_TAG} .
+      # ECR向けにタグ付け
+      - docker tag ${ECR_REPOSITORY}:${IMAGE_TAG} ${ECR_URI}:${IMAGE_TAG}
+
+  post_build:
+    commands:
+      - echo "===== post_build 開始 ====="
+      # ECRにpush
+      - docker push ${ECR_URI}:${IMAGE_TAG}
+      - echo "===== 完了 ====="

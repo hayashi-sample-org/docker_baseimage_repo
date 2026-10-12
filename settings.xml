@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 http://maven.apache.org/xsd/settings-1.0.0.xsd">
+
+    <!-- ① 認証情報：artifact-repoへの接続にトークンを使う -->
+    <servers>
+        <server>
+            <id>artifact-domain-artifact-repo</id>
+            <username>aws</username>
+            <password>${env.CODEARTIFACT_AUTH_TOKEN}</password>
+        </server>
+    </servers>
+
+    <!-- ② 取得先：Otelをどこから取るか（artifact-repo） -->
+    <profiles>
+        <profile>
+            <id>artifact-domain-artifact-repo</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <repositories>
+                <repository>
+                    <id>artifact-domain-artifact-repo</id>
+                    <url>https://artifact-domain-882567865866.d.codeartifact.ap-northeast-1.amazonaws.com/maven/artifact-repo/</url>
+                </repository>
+            </repositories>
+        </profile>
+    </profiles>
+
+</settings>
