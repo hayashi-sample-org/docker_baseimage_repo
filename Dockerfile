@@ -1,5 +1,6 @@
 # ========== ① ビルドステージ（作業場） ==========
-FROM amazoncorretto:25 AS builder
+# ベースイメージはECRプルスルーキャッシュ経由で取得（上流=ECR Public）
+FROM 882567865866.dkr.ecr.ap-northeast-1.amazonaws.com/ecr-public/amazoncorretto/amazoncorretto:25 AS builder
 
 # Mavenをインストール（Corretto25イメージにはMavenが入っていないため）
 # 配布元は全バージョンを恒久保存するApache Archiveを使用（ミラーのURL消失による404を回避）
@@ -25,7 +26,8 @@ COPY src ./src
 RUN mvn -s settings.xml clean package
 
 # ========== ② 実行ステージ（完成品） ==========
-FROM amazoncorretto:25 AS runtime
+# ベースイメージはECRプルスルーキャッシュ経由で取得（上流=ECR Public）
+FROM 882567865866.dkr.ecr.ap-northeast-1.amazonaws.com/ecr-public/amazoncorretto/amazoncorretto:25 AS runtime
 
 WORKDIR /app
 
