@@ -49,8 +49,9 @@ phases:
       # pushしたイメージのdigestを取得（タグではなくdigestで署名するのが安全）
       - IMAGE_DIGEST=$(aws ecr describe-images --repository-name ${ECR_REPOSITORY} --image-ids imageTag=${IMAGE_TAG} --region ${AWS_REGION} --query 'imageDetails[0].imageDigest' --output text)
       - echo "署名対象 digest=${IMAGE_DIGEST}"
-      # notationでECRにログイン（CodeBuildのIAMロールで認証）
-      - aws ecr get-login-password --region ${AWS_REGION} | notation login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
+      # notationのECR認証情報を環境変数で渡す（CodeBuild環境にはクレデンシャルストアが無いためloginは使わない）
+      - export NOTATION_USERNAME=AWS
+      - export NOTATION_PASSWORD=$(aws ecr get-login-password --region ${AWS_REGION})
       # AWS Signerプラグインを使って署名（digest指定・署名プロファイルARN指定）
       - notation sign ${ECR_URI}@${IMAGE_DIGEST} --plugin "com.amazonaws.signer.notation.plugin" --id "${SIGNING_PROFILE_ARN}"
       - echo "===== 完了 ====="
