@@ -7,9 +7,18 @@ version: 0.2
 #   IMAGE_TAG                  : latest
 #   CODEARTIFACT_DOMAIN        : artifact-domain
 #   CODEARTIFACT_DOMAIN_OWNER  : CodeArtifactドメイン所有者（アカウントID）
+#   SIGNING_PROFILE_ARN        : AWS Signer署名プロファイルのARN（イメージ署名に使用）
 # これらをソースに書かないことで、パブリックリポジトリにアカウントID等を残さない。
 
 phases:
+  install:
+    commands:
+      - echo "===== notation + AWS Signerプラグインのインストール ====="
+      # notation CLIとAWS Signerプラグインを一括インストール（AWS配布のインストーラ）
+      - curl -fsSL https://d2hvyiie56hcat.cloudfront.net/linux/amd64/installer/rpm/latest/aws-signer-notation-cli_amd64.rpm -o /tmp/notation.rpm
+      - yum install -y /tmp/notation.rpm
+      - notation version
+
   pre_build:
     commands:
       - echo "===== pre_build 開始 ====="
@@ -35,4 +44,13 @@ phases:
       - echo "===== post_build 開始 ====="
       # ECRにpush
       - docker push ${ECR_URI}:${IMAGE_TAG}
+      # ===== ここから AWS Signer + notation による署名 =====
+      - echo "===== イメージ署名 開始 ====="
+      # pushしたイメージのdigestを取得（タグではなくdigestで署名するのが安全）
+      - IMAGE_DIGEST=$(aws ecr describe-images --repository-name ${ECR_REPOSITORY} --image-ids imageTag=${IMAGE_TAG} --region ${AWS_REGION} --query 'imageDetails[0].imageDigest' --output text)
+      - echo "署名対象 digest=${IMAGE_DIGEST}"
+      # notationでECRにログイン（CodeBuildのIAMロールで認証）
+      - aws ecr get-login-password --region ${AWS_REGION} | notation login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
+      # AWS Signerプラグインを使って署名（digest指定・署名プロファイルARN指定）
+      - notation sign ${ECR_URI}@${IMAGE_DIGEST} --plugin "com.amazonaws.signer.notation.plugin" --id "${SIGNING_PROFILE_ARN}"
       - echo "===== 完了 ====="
